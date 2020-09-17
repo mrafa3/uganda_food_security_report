@@ -1,0 +1,1038 @@
+---
+title: "Uganda Agricultural Trends Report"
+author: "Pardee"
+date: "Spring/Summer 2018"
+output:
+  html_notebook:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(scales)
+library(extrafont)
+library(ggalt)            #for easy dumbbell plots
+#library(stringr)
+#font_import()
+#loadfonts()
+
+pardee.theme <- theme(
+  plot.title = element_text(family="Gill Sans MT", color="black", face="bold", size=16, hjust=0), 
+  plot.subtitle = element_text(family="Gill Sans MT", color="black", size=14, hjust=0), 
+  axis.title = element_text(family="Gill Sans MT", color="black", face="bold", size=12), 
+  axis.text = element_text(family="Gill Sans MT", color="black", size=11), 
+  plot.caption = element_text(family="Gill Sans MT", color="black", size=12), 
+  panel.background =  element_rect(fill = "#F7F7F7", colour = NA), 
+  panel.grid.major = element_line(colour = "grey90", size = 0.5),
+  panel.grid.minor = element_line(colour = "grey93", size = 0.5),
+  panel.border = element_rect(colour = "black", size = 0.5, fill=NA, linetype = 1),
+  legend.title=element_blank(), 
+  legend.text = element_text(family="Gill Sans MT", color="black", size=12, hjust=0),
+  legend.position = 'top',
+  strip.text = element_text(family="Gill Sans MT", color="black", size=14))
+
+pardee.theme2 <- theme(
+  plot.title = element_text(color="black", face="bold", size=16, hjust=0), 
+  plot.subtitle = element_text(color="black", size=14, hjust=0), 
+  axis.title = element_text(color="black", face="bold", size=12), 
+  axis.text = element_text(color="black", size=11), 
+  plot.caption = element_text(color="black", size=12), 
+  panel.background =  element_rect(fill = "#F7F7F7", colour = NA), 
+  panel.grid.major = element_line(colour = "grey90", size = 0.5),
+  panel.grid.minor = element_line(colour = "grey93", size = 0.5),
+  panel.border = element_rect(colour = "black", size = 0.5, fill=NA, linetype = 1),
+  legend.title=element_blank(), 
+  legend.text = element_text(color="black", size=12, hjust=0),
+  legend.position = 'top',
+  strip.text = element_text(color="black", size=14))
+
+viz_cols <- c('Uganda' = 'red', 'Other' = 'black', 'Rest of World' = 'lightgray',
+              'Current Path' = 'darkgreen', 'Food Secure' = 'tomato3', 'Agricultural Production' = 'blue')
+
+pt_groups <- read.csv('.//data/pardee_trends_groups.csv') %>% 
+  filter(main_group == 'Pardee Group')
+```
+
+# Population growth
+
+## Doubling time 
+
+```{r uganda_pop, include=TRUE}
+uganda_pop <- readxl::read_xls('.//data/UGANDA_POP.xls') %>% 
+  mutate(pop_times_2 = Population * 2,
+         dbl_1960 = ifelse(Population > pop_times_2[1], 1, 0),
+         dbl_1960_year = ifelse(dbl_1960 == 1, which.min(Year), NA))
+
+uganda_pop$pop_times_2[1]
+```
+
+```{r eac_countries, include=TRUE}
+eac_countries <- c('Burundi', 'Kenya', 'Rwanda', 'Tanzania', 'Uganda')
+```
+
+# Median age
+
+```{r median_age, include=TRUE}
+median_age <- readxl::read_xls('.//data/MEDIAN_AGE_AFRICA.xls') %>% 
+  filter(Year == 2018 | Year == 2050) %>% 
+  mutate(IsUganda = ifelse(Country == 'Uganda', 'Uganda', 'Other'),
+         Context = 'Countries')
+```
+
+```{r median_age_eac, include=TRUE}
+median_age_eac <- median_age %>% 
+  filter(Country %in% eac_countries)
+```
+
+```{r median_age_context, include=TRUE}
+median_age_context <- readxl::read_xls('.//data/CONTEXT_MEDIAN_AGE.xls') %>% 
+  filter(Year == 2018 | Year == 2050) %>% 
+  mutate(IsUganda = 'Other',
+         Context = 'Regions')
+
+test <- bind_rows(median_age_eac, median_age_context)
+```
+
+```{r fig.height=6.2}
+ggplot() + 
+  geom_point(data=median_age %>% filter(Year == 2018 & 
+                                        Country %in% eac_countries),
+             aes(x=MedianAge,
+                 y=reorder(Country, -MedianAge),
+                 color=IsUganda), size=5) + 
+  geom_point(data=median_age %>% filter(Year == 2050 & 
+                                        Country %in% eac_countries),
+             aes(x=MedianAge,
+                 y=reorder(Country, -MedianAge),
+                 color=IsUganda), size=5) + 
+  scale_color_manual(values = viz_cols) + 
+  labs(y='') + 
+  pardee.theme
+```
+
+
+```{r}
+median_age_eac %>% 
+  spread(Year, MedianAge) %>% 
+  ggplot(.) + 
+  geom_dumbbell(aes(x=`2018`,
+                    xend=`2050`,
+                    y=reorder(Country, -`2018`),
+                    color=IsUganda), size_x = 5, size_xend = 5, dot_guide = TRUE) + 
+  ggtitle('Median age of EAC countries in 2018 and 2050') + 
+  annotate("text", x = 16, y = 5.5, label = "2018", 
+           color = 'gray40', size = 4.5, family="Gill Sans MT", fontface = 'bold') + 
+  annotate("text", x = 22, y = 5.5, label = "2050", 
+           color = 'gray40', size = 4.5, family="Gill Sans MT", fontface = 'bold') + 
+  scale_color_manual(values = viz_cols) + 
+  labs(x='Median age of population',
+       y='') + 
+  scale_y_discrete(expand = c(0,1)) +
+  pardee.theme 
+  theme(legend.position = 'none')
+```
+
+
+```{r fig.height=4.8, fig.width=10}
+test %>% 
+  filter(!str_detect(Country, 'Africa'),
+         Country != 'Pardee LatAm & Car') %>% 
+  mutate(viz_facet = ifelse(Context == 'Countries', 'East African Community', 'UN Regions')) %>% 
+  filter(viz_facet == 'East African Community') %>% 
+  spread(Year, MedianAge) %>% 
+  ggplot(.) + 
+  geom_dumbbell(aes(x=`2018`,
+                    xend=`2050`,
+                    y=reorder(Country, -`2018`),
+                    color=IsUganda), size_x = 5, size_xend = 5, dot_guide = TRUE) + 
+  ggtitle('Median Age of countries and regions in 2018 and 2050',
+          subtitle = 'IFs Current Path') +
+  annotate("text", x = 16, y = 5.3, label = "2018",  
+           color = 'gray40', size = 4.5, family="Gill Sans MT", fontface = 'bold') + 
+  annotate("text", x = 22.25, y = 5.3, label = "2050", 
+           color = 'gray40', size = 4.5, family="Gill Sans MT", fontface = 'bold') + 
+  facet_wrap(~viz_facet, ncol = 1, scales = "free_y") + 
+  scale_color_manual(values = viz_cols) + 
+  labs(x='',
+       y='') + 
+  pardee.theme + 
+  theme(legend.position = 'none')
+
+
+```
+
+```{r fig.height=4.8, fig.width=10}
+test %>% 
+  filter(!str_detect(Country, 'Africa'),
+         Country != 'Pardee LatAm & Car') %>% 
+  mutate(viz_facet = ifelse(Context == 'Countries', 'East African Community', 'UN Regions')) %>% 
+  filter(viz_facet == 'UN Regions') %>% 
+  spread(Year, MedianAge) %>% 
+  ggplot(.) + 
+  geom_dumbbell(aes(x=`2018`,
+                    xend=`2050`,
+                    y=reorder(Country, -`2018`),
+                    color=IsUganda), size_x = 5, size_xend = 5, dot_guide = TRUE) + 
+  #ggtitle('Median Age of countries in 2018 and 2050',
+   #       subtitle = 'IFs Current Path') +
+  #annotate("text", x = 16, y = 5.3, label = "2018",  
+   #        color = 'gray40', size = 4.5, family="Gill Sans MT", fontface = 'bold') + 
+  #annotate("text", x = 22.25, y = 5.3, label = "2050", 
+   #        color = 'gray40', size = 4.5, family="Gill Sans MT", fontface = 'bold') + 
+  facet_wrap(~viz_facet, ncol = 1, scales = "free_y") + 
+  scale_color_manual(values = viz_cols) + 
+  labs(x='Median age of population',
+       y='') + 
+  pardee.theme + 
+  theme(legend.position = 'none')
+```
+
+```{r population, include=TRUE}
+population <- read_csv('.//data/pop_story.csv') %>% 
+  gather(year, val, 5:94)
+
+population <- population %>% 
+  filter(year == 2018) %>% 
+  select(-unit) %>% 
+  spread(var, val) %>% 
+  mutate(IsUganda = ifelse(country == 'Uganda', 'Uganda', 'Rest of World'))
+```
+
+```{r population_2, include=TRUE}
+population <- population %>% 
+  left_join(x=.,
+            y=pt_groups,
+            by=c("country" = "Country"))
+```
+
+```{r pop_ttl, include=TRUE}
+pop_ttl <- readxl::read_xlsx('.//data/population_ttl.xlsx') %>% 
+  gather(year, population_ttl, 5:40) %>% 
+  #mutate(year = as.numeric(year)) %>% 
+  filter(year == '2018') %>% 
+  select(country, scenario, year, population_ttl)
+
+population <- population %>% 
+  left_join(x=.,
+            y=pop_ttl,
+            by='country')
+
+#write.csv(population, './/output_tables/ug_fig_2.csv')
+```
+
+```{r fig.height=6.2}
+fig_2 <- population %>% 
+  ggplot(.) + 
+  geom_point(aes(x=pop_med,
+                 y=pop_gr / 100,
+                 color=sub_group, size=population_ttl)) + 
+  ggrepel::geom_text_repel(data=population %>% filter(country %in% eac_countries),
+                            aes(x=pop_med,
+                                y=pop_gr / 100,
+                                label=country), 
+                           family="Gill Sans MT", 
+                           size=4.5, force = 24) + 
+  ggtitle('Median age of population vs. annual population growth',
+          'Demographic indicators from 2018') + 
+  labs(x='\nMedian age of population',
+       y='Annual population growth rate\n',
+       caption='Source: IFs v7.33 Current Path\nBubble size indicates the size\nof the total population') + 
+  scale_y_continuous(labels = percent,
+                     limits = c(-.025, .052)) + 
+  scale_x_continuous(limits = c(15, 48)) + 
+  pardee.theme + 
+  guides(size= 'none') + 
+  theme(axis.text = element_text(size=16))
+
+ggsave(".//graphics/fig_2.pdf", plot = fig_2, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+```{r ag_import_dep, include=TRUE}
+ag_import_dep <- readxl::read_xlsx('.//data/report_graphics.xlsx', sheet='ag_import_dep') %>% 
+  gather(year, val, 5:50) %>% 
+  mutate(year = as.numeric(year),
+         scenario = factor(scenario, levels=c('Current Path', 'Agricultural Production', 'Food Secure')))
+
+maln_pop <- readxl::read_xlsx('.//data/report_graphics.xlsx', sheet='maln_pop') %>% 
+  gather(year, val, 5:64) %>% 
+  mutate(year = as.numeric(year),
+         scenario = factor(scenario, levels=c('Current Path', 'Agricultural Production', 'Food Secure')))
+
+yyl <- readxl::read_xlsx('.//data/report_graphics.xlsx', sheet='yyl') %>% 
+  gather(year, val, 5:40) %>% 
+  mutate(year = as.numeric(year),
+         scenario = factor(scenario, levels=c('Current Path', 'Agricultural Production', 'Food Secure')))
+
+cum_gdp <- readxl::read_xlsx('.//data/report_graphics.xlsx', sheet='cum_gdp') %>% 
+  gather(year, val, 5:37) %>% 
+  mutate(year = as.numeric(year),
+         scenario = factor(scenario, levels=c('Current Path', 'Agricultural Production', 'Food Secure')))
+```
+
+```{r trade_cats, include=TRUE}
+quantity_vals <- c('Export Quantity', 'Import Quantity')
+value_vals <- c('Export Value', 'Import Value')
+```
+
+```{r ag_trade, include=TRUE}
+ag_trade <- readxl::read_xlsx('.//data/ag_trade.xlsx') %>% 
+  filter(Country == 'Uganda')
+
+ag_trade_summary <- ag_trade %>% 
+  group_by(Country, Element, Unit, Year) %>% 
+  summarise(sum_value = sum(Value, na.rm=TRUE)) %>% 
+  mutate(Element_group = ifelse(Element %in% quantity_vals, 'By Quantity', 'By Value'))
+
+ag_trade_summary$Element <- factor(ag_trade_summary$Element, levels = 
+                                           c('Export Quantity', 'Import Quantity',
+                                             'Export Value', 'Import Value'))
+
+
+```
+
+```{r fig.height=6.2}
+fig_3a <- ag_trade_summary %>% 
+  filter(Element %in% quantity_vals) %>% 
+  ggplot(.) + 
+  geom_line(aes(x=Year,
+                y=sum_value / 1000000,
+                group=Element,
+                color=Element), size=1.25) + 
+  ggtitle('Uganda agricultural imports and exports by quantity and volume') + 
+  labs(x='',
+       y='Million tonnes\n') + 
+  facet_wrap(~Element_group) + 
+  scale_x_continuous(breaks = c(1960, 1970, 1980, 1990, 2000, 2010)) + 
+  pardee.theme + 
+  theme(axis.text.y = element_text(size=16))
+
+ggsave(".//graphics/fig_3a.pdf", plot = fig_3a, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+```{r fig.height=6.2}
+fig_3b <- ag_trade_summary %>% 
+  filter(Element %in% value_vals) %>% 
+  ggplot(aes(x=Year,
+                y=sum_value / 1000)) + 
+  geom_line(aes(group=Element,
+                color=Element), size=1.25) + 
+  labs(x='',
+       y='Million USD\n',
+       caption='Source: FAOSTAT') + 
+  facet_wrap(~Element_group) + 
+  scale_x_continuous(breaks = c(1960, 1970, 1980, 1990, 2000, 2010)) + 
+  scale_y_continuous(labels = comma) + 
+  pardee.theme + 
+  theme(axis.text.y = element_text(size=12.5))
+
+ggsave(".//graphics/fig_3b.pdf", plot = fig_3b, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+```{r write_fig_3, include=TRUE}
+write.csv(ag_trade_summary, './/output_tables/ug_fig_3.csv')
+```
+
+```{r ag_trade_detail, include=TRUE}
+ag_trade_detail <- readxl::read_xlsx('.//data/ag_trade.xlsx') %>% 
+  mutate(Element_group = ifelse(Element %in% quantity_vals, 'By Quantity', 'By Value'),
+         IsCoffee = ifelse(str_detect(Item, 'Coffee'), 'Coffee', 'Other')) %>% 
+  group_by(Country, Domain, Element, Element_group, Item, IsCoffee, Unit, Year) %>% 
+  summarise(sum_value = sum(Value, na.rm=TRUE))
+```
+
+```{r fig.height=6.2}
+ag_trade_detail %>% 
+  filter(Country == 'Uganda',
+         Element == 'Export Quantity',
+         IsCoffee == 'Coffee') %>% 
+  group_by(Country, Year, Element, Item) %>% 
+  summarise(sum_value = sum(sum_value, na.rm=TRUE)) %>% 
+  ggplot(.) + 
+  geom_area(aes(x=Year,
+                y=sum_value,
+                group=Item,
+                fill=Item)) + 
+  pardee.theme
+```
+
+
+```{r}
+ag_trade_detail %>% 
+  ungroup() %>% 
+  filter(Element == 'Export Value') %>% 
+  group_by(Country, Year, Element, Item) %>% 
+  summarise(sum_value = sum(sum_value, na.rm=TRUE)) %>% 
+  filter(Year >= 2010) %>% 
+  arrange(desc(sum_value))
+```
+
+```{r}
+ug_trade <- ag_trade_detail %>% 
+  ungroup() %>% 
+  filter(Country == 'Uganda',
+         Element == 'Export Value') %>% 
+  spread(Element, sum_value) %>% 
+  select(Country, Year, Item, Unit, `Export Value`)
+
+ug_trade_2 <- ag_trade_detail %>% 
+  ungroup() %>% 
+  filter(Country == 'Uganda',
+         Element == 'Export Quantity') %>% 
+  spread(Element, sum_value) %>% 
+  select(Country, Year, Item, Unit, `Export Quantity`)
+
+ug_trade_3 <- ag_trade_detail %>% 
+  ungroup() %>% 
+  filter(Country == 'Uganda',
+         Element == 'Import Value') %>% 
+  spread(Element, sum_value) %>% 
+  select(Country, Year, Item, Unit, `Import Value`)
+
+ug_trade_4 <- ag_trade_detail %>% 
+  ungroup() %>% 
+  filter(Country == 'Uganda',
+         Element == 'Import Quantity') %>% 
+  spread(Element, sum_value) %>% 
+  select(Country, Year, Item, Unit, `Import Quantity`)
+
+#boss join use purrr::reduce()
+ug_trade_tables <- list(ug_trade, ug_trade_2, ug_trade_3, ug_trade_4)
+ug_trade_master <- reduce(ug_trade_tables, left_join, by=c("Country", "Year", "Item"))
+
+ug_trade_master <- ug_trade_master %>% 
+  select(1:3, 5, 7, 9, 11) %>% 
+  mutate(net_imports_quantity = `Import Quantity` - `Export Quantity`, 
+         price_per_volume = ifelse(`Export Quantity` == 0, 0, `Export Value` / `Export Quantity`))
+```
+
+```{r fig.height=6.2}
+ug_trade_master %>% 
+  filter(Year == 2013) %>% 
+  ggplot(.) + 
+  geom_point(aes(x=`Export Value`,
+                 y=net_imports_quantity,
+                 size=price_per_volume)) + 
+  ggrepel::geom_text_repel(data=ug_trade_master %>% filter(Year == 2013, abs(net_imports_quantity) >= 150000),
+                            aes(x=`Export Value`,
+                                y=net_imports_quantity,
+                                label=Item), family="Gill Sans MT", size=4.5, force = 24) + 
+  #geom_abline(slope = 1, intercept = 0, linetype='dashed') + 
+  pardee.theme
+```
+
+
+
+```{r fig.height=6.2}
+fig_4 <- ag_import_dep %>% 
+  filter(year >=2018) %>% 
+  ggplot(.) + 
+  geom_point(aes(x=year,
+                 y=val / 100,
+                 color=scenario, shape=scenario), size=2.5) + 
+  geom_line(aes(x=year,
+                y=val / 100,
+                color=scenario, group=scenario), size=1.25) + 
+  ggtitle('Crop import dependence in Uganda by scenario') + 
+  labs(x='Year',
+       y='Net imports as percent of demand\n',
+       caption='Source: IFs v7.33') + 
+  pardee.theme + 
+  scale_y_continuous(labels = percent) + 
+  scale_color_manual(values = viz_cols) + 
+  theme(axis.text.y = element_text(size=16))
+
+ggsave(".//graphics/fig_4.pdf", plot = fig_4, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+```{r write_fig_4, include=TRUE}
+write.csv(ag_import_dep, './/output_tables/ug_fig_4.csv')
+```
+
+```{r fig.height=6.2}
+fig_5 <- maln_pop %>% 
+  filter(year >=2018) %>% 
+  ggplot(.) + 
+  geom_point(aes(x=year,
+                 y=val,
+                 color=scenario, shape=scenario), size=2.5) + 
+  geom_line(aes(x=year,
+                y=val,
+                color=scenario, group=scenario), size=1.25) + 
+  ggtitle('Total malnourished people in Uganda by scenario') + 
+  labs(x='Year',
+       y='Million people',
+       caption='Source: IFs v7.33') + 
+  pardee.theme + 
+  scale_color_manual(values = viz_cols) + 
+  theme(axis.text.y = element_text(size=16))
+
+ggsave(".//graphics/fig_5.pdf", plot = fig_5, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+```{r write_fig_5, include=TRUE}
+write.csv(maln_pop, './/output_tables/ug_fig_5.csv')
+```
+
+```{r fig.height=6.2}
+fig_6 <- yyl %>% 
+  filter(year >=2018) %>% 
+  ggplot(.) + 
+  geom_point(aes(x=year,
+                 y=val,
+                 color=scenario, shape=scenario), size=2.5) + 
+  geom_line(aes(x=year,
+                y=val,
+                color=scenario, group=scenario), size=1.25) + 
+  ggtitle('Total years of life lost to communicable diseases in Uganda by scenario') + 
+  labs(x='Year',
+       y='Million years',
+       caption='Source: IFs v7.33') + 
+  pardee.theme + 
+  scale_color_manual(values = viz_cols) + 
+  theme(axis.text.y = element_text(size=16))
+
+ggsave(".//graphics/fig_6.pdf", plot = fig_6, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+```{r write_fig_6, include=TRUE}
+write.csv(yyl, './/output_tables/ug_fig_6.csv')
+```
+
+```{r fig.height=6.2}
+cum_gdp %>% 
+  filter(scenario != 'Current Path') %>% 
+  ggplot(.) + 
+  geom_point(aes(x=year,
+                 y=val,
+                 color=scenario, shape=scenario), size=2.5) + 
+  geom_line(aes(x=year,
+                y=val,
+                color=scenario, group=scenario), size=1.25) + 
+  ggtitle('Cumulative increase in GDP by scenario (relative to the Current Path)',
+          subtitle = '3% discount rate applied') + 
+  labs(x='Year',
+       y='Billion 2011 USD\n',
+       caption='Source: IFs v7.33') + 
+  pardee.theme + 
+  scale_color_manual(values = viz_cols) + 
+  theme(axis.text.y = element_text(size=16))
+```
+
+
+```{r mapping_theme, include=TRUE, echo=TRUE}
+#Creating mapping theme
+usaid.theme.map <- theme(
+  plot.title = element_text(family="Gill Sans MT", color="black", face="bold", size=20, hjust=.5), 
+  plot.subtitle = element_text(family="Gill Sans MT", color="black", size=14, hjust=.5), 
+  axis.title = element_blank(),
+  axis.text = element_blank(),
+  axis.ticks = element_blank(), 
+  axis.line = element_blank(),
+  plot.caption = element_text(family="Gill Sans MT", color="black", size=12), 
+  panel.background =  element_blank(), 
+  legend.title = element_text(family="Gill Sans MT", color="black", size=14, hjust=.5),
+  legend.text = element_text(family="Gill Sans MT", color="black", size=12, hjust=0))
+```
+
+```{r mapping_setup, include=TRUE, echo=TRUE}
+#I have not found a mapping package that includes the 116 district alignment. So, we need to read in a 
+#shapefile (and its associated files) that has the 116 alignment.
+
+shape <- rgdal::readOGR("data", "Uganda_New")
+#fortify will take the shape object, convert it to a ggplot readable format, and set the field that has the geo name
+shape.fort <- fortify(shape, region = "DNAME_06")
+```
+
+# Literacy parity test 
+
+```{r message=FALSE, warning=FALSE}
+literacy <- readr::read_csv('.//data/uganda_admin_profile_3.csv') %>% 
+  filter(grepl("^3:", Category)) %>% 
+  mutate(Literacy_rate = 100-Percent) %>% 
+  select(District, Measure, Literacy_rate) %>% 
+  spread(Measure, Literacy_rate) %>% 
+  select(1:3, 6) %>% 
+  rename('Female' = 'Females aged 18 years and above who are illiterate',
+         'Male' = 'Males aged 18 years and above who are illiterate',
+         'Total' = 'Persons aged 18 years and above who are illiterate') %>% 
+  mutate(Literacy_ratio = Female / Male,
+         District = ifelse(District == 'Kampala-Kcca', 'Kampala',
+                    ifelse(District == 'Mityana1', 'Mityana', as.character(District))))
+```
+
+```{r}
+regions <- read.csv('.//data/regions.csv')
+```
+
+```{r}
+literacy <- literacy %>% 
+  left_join(x=.,
+            y=regions,
+            by='District') %>% 
+  mutate(Karamoja = ifelse(Subregion == 'Karamoja', 'Karamoja', 'Rest of Uganda'))
+```
+
+```{r fig.height=6.2}
+literacy %>% 
+  ggplot(.) + 
+  geom_point(aes(x=Male / 100,
+                 y=Female / 100,
+                 color=Karamoja), size=2) + 
+  geom_abline(slope = 1, intercept = 0, linetype='dashed') + 
+  scale_x_continuous(labels = percent,
+                     limits = c(0, 1)) + 
+  scale_y_continuous(labels = percent,
+                     limits = c(0, 1)) + 
+  labs(x='Male literacy rate (%)',
+       y='Female literacy rate (%)') + 
+  pardee.theme + 
+  scale_color_manual(values = c('Karamoja' = 'red', 'Rest of Uganda' = 'black'))
+```
+
+```{r literacy_map, include=TRUE}
+literacy_map <- literacy %>% 
+  full_join(x=., 
+            y=shape.fort, 
+            by=c('District' = 'id'))
+```
+
+```{r literacy_map_2, include=TRUE, echo=TRUE, fig.height=7}
+literacy_map %>% 
+  ggplot(.) + 
+  geom_polygon(mapping=aes(x=long,
+                           y=lat,
+                           group=group,
+                           #fill= is the variable you want to map
+                           fill=Literacy_ratio),
+            #color= sets the boundary color
+            color='black', 
+            size=.2) + 
+  ggtitle('Ratio of Female to Male literacy rates in Uganda') + 
+  coord_map() + 
+  labs(fill='') + 
+   #    caption='Source: 2014 data from LandScan\n2015 data from the Global Human Settlements Layer') + 
+  #this is how you can change the color scale easily
+  #scale_fill_manual(na.value = 'gray50') + 
+  usaid.theme.map + 
+  theme(legend.position = 'top',
+        legend.justification = 'center')
+```
+
+# Less than 2 meals per day 
+
+```{r}
+hunger_district <- readr::read_csv('.//data/uganda_admin_profile_3.csv') %>% 
+  filter(grepl("^14:", Category)) %>% 
+  select(District, Measure, Percent) %>% 
+  spread(Measure, Percent) %>% 
+  rename('Subsistence_prev' = 'Households that depend on subsistence farming as a main source of livelihood',
+         'LT_2_meals_daily' = 'Households where (members aged 5 years and above) consume less than two meals in a day') %>% 
+  select(District, Subsistence_prev, LT_2_meals_daily) %>% 
+  mutate(District = ifelse(District == 'Kampala-Kcca', 'Kampala',
+                    ifelse(District == 'Mityana1', 'Mityana', as.character(District))))
+  
+hunger_district <- hunger_district %>% 
+  left_join(x=.,
+            y=regions,
+            by='District') %>% 
+  mutate(Karamoja = ifelse(Subregion == 'Karamoja', 'Karamoja', 'Rest of Uganda'),
+         Northern = ifelse(Region == 'Northern', 'Northern', 'Rest of Uganda'))
+```
+
+```{r fig.height=6.2}
+hunger_district %>% 
+  ggplot(.) + 
+  geom_point(aes(x=Subsistence_prev / 100,
+                 y=LT_2_meals_daily / 100,
+                 color=Northern), size=2) + 
+  scale_x_continuous(labels = percent,
+                     limits = c(0, 1)) + 
+  scale_y_continuous(labels = percent,
+                     limits = c(0, 1)) + 
+  labs(x='Prevalence of subsistence farming as main source of livelihood',
+       y='Prevalence of households consuming less than 2 meals daily') + 
+  pardee.theme + 
+  scale_color_manual(values = c('Northern' = 'red', 'Rest of Uganda' = 'black'))
+```
+
+```{r fig.height=6.2}
+hunger_district %>% 
+  filter(!is.na(LT_2_meals_daily)) %>% 
+  #arrange(-LT_2_meals_daily) %>% 
+  #top_n(20, LT_2_meals_daily) %>% 
+  ggplot(.) + 
+  geom_col(aes(x=reorder(District, LT_2_meals_daily),
+               y=LT_2_meals_daily / 100,
+           fill=Northern),
+           color='gray40') + 
+  scale_y_continuous(labels = percent) + 
+  labs(x='District',
+       y='Households consuming less than 2 meals per day',
+       caption='Source: UBOS Area Specific Profiles') + 
+  coord_flip() + 
+  scale_fill_manual(values = c('Northern' = 'red', 'Rest of Uganda' = 'darkgray')) + 
+  pardee.theme + 
+  theme(axis.text.y = element_blank())
+```
+
+# Relative agricultural demand increase 
+
+```{r}
+reg_countries <- c('Uganda', 'Kenya', 'Rwanda', 'Tanzania')
+
+rel_agdem_inc <- readxl::read_xlsx('.//data/rel_agdem_inc.xlsx', sheet = 'rel_agdem_inc') %>% 
+  gather(year, agdem, 2:37) %>% 
+  mutate(Uganda = ifelse(Country == 'Uganda', 'Uganda', 'Other SSA Country'),
+         year = as.numeric(year)) %>% 
+  mutate(Uganda = factor(Uganda, levels=c('Uganda', 'Other SSA Country'))) %>% 
+  mutate(cntry_spotlight = ifelse(Country %in% reg_countries, as.character(Country), 'Other SSA Country')) %>% 
+  mutate(cntry_spotlight = factor(cntry_spotlight, levels=c('Uganda', 'Kenya', 'Rwanda', 
+                                                            'Tanzania', 'Other SSA Country'))) %>% 
+  mutate(cntry_size_ggplot = ifelse(cntry_spotlight == 'Other SSA Country', 'Other SSA Country', 'Spotlight'))
+
+write.csv(rel_agdem_inc, './/output_tables/ug_fig_1.csv')
+```
+
+```{r fig.height=6.2}
+fig_1 <- ggplot() + 
+  geom_line(data=rel_agdem_inc,
+            aes(x=year,
+                y=agdem,
+                group=Country, 
+                color=cntry_spotlight, 
+                size=cntry_spotlight)) + 
+  ggtitle('Increase in total food demand, relative to 2015 values',
+          subtitle = 'Uganda vs. other Sub-Saharan African countries') + 
+  labs(x='Year',
+       y='Relative increase in total food demand from 2015\n',
+       caption='Source: IFs Current Path v7.33') + 
+  scale_color_manual(values = c('Uganda' = 'darkgreen', 'Kenya' = 'darkblue', 
+                                'Rwanda' = 'gold4', 'Tanzania' = 'purple', 
+                                'Other SSA Country' = 'gray80')) + 
+  scale_size_manual(values=c('Uganda' = 2, 'Kenya' = 2, 'Rwanda' = 2,
+                             'Tanzania' = 2, 'Other SSA Country' = .6)) + 
+  scale_y_continuous(limits = c(1,4)) + 
+  #scale_x_continuous(breaks = c('2015', '2020', '2025', '2030', '2035', '2040', '2045', '2050')) + 
+  pardee.theme + 
+  theme(axis.text.y = element_text(size=18))
+
+ggsave(".//graphics/fig_1.pdf", plot = fig_1, height = 6.2, width = 10, family="Gill Sans MT", device=cairo_pdf)
+```
+
+# Tables
+
+```{r}
+scenarios_compare <- readxl::read_xlsx('.//data/results_tables.xlsx', sheet = 'Scenarios compare') %>% 
+  gather(scenario, value, 3:6) %>% 
+  separate(scenario, into=c("scenario", "year"), sep="_") %>% 
+  mutate(scenario = ifelse(scenario == '2018', '2018 value', 
+                    ifelse(scenario == 'Current Path', 'Current Path 2050',
+                    ifelse(scenario == 'Agricultural Production', 'Agricultural Production 2050',
+                           'Food Secure 2050'))),
+         category = factor(category, levels = c('Availability', 'Access', 'Stability', 'Utilization')))
+  
+scenarios_compare <- scenarios_compare %>% 
+  mutate(scenario = factor(scenario, levels = c('2018 value', 'Current Path 2050', 
+                                                'Agricultural Production 2050', 'Food Secure 2050')))
+
+scenarios_compare$scenario <- str_wrap(scenarios_compare$scenario, width = 12) 
+
+scenarios_compare %>% write.csv('.//output_tables/scenario_compare.csv')
+```
+
+```{r fig.height=6.2}
+scenarios_compare %>% 
+  ggplot(.) + 
+  geom_tile(aes(x=scenario,
+                y=indicator,
+                fill=value), color='gray90') + 
+  geom_text(aes(x=scenario,
+                y=indicator,
+                label = round(value, 1)), color="white", size=6) + 
+  facet_grid(category~scenario, scales = "free", space = "free",
+             labeller = labeller(groupwrap = label_wrap_gen(width = 6, multi_line = TRUE))) + 
+  #ggtitle('Share of population with access to infrastructure types') + 
+  #coord_flip() + 
+  labs(x='',
+       y='') + 
+  ggtitle('Trends in food security indicators to 2050 by scenario') + 
+  pardee.theme + 
+  theme(legend.position = 'none',
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        #strip.text = element_text(margin = 10),
+        strip.background = element_blank()) + 
+  scale_fill_continuous(low = 'lightgray', high = 'green4') + 
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) + 
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15))
+```
+
+```{r}
+indicators <- readxl::read_xlsx('.//data/results_tables.xlsx', sheet = 'Indicators') %>% 
+  gather(country, value, 3:8) %>% 
+  separate(country, into=c("Country", "Year"), sep="_")
+
+#indicators %>% write.csv('.//output_tables/indicators.csv')
+```
+
+```{r FAO, include=TRUE}
+FAO <- readxl::read_xlsx('.//data/Copy of FAOSTAT_R&UProduction.xlsx', sheet = 'FAOSTAT_R&UProduction') %>% 
+  select(-c(`Area Code`, `Element Code`, `Item Code`, `Flag Description`, helper, Flag, Unit)) %>% 
+  #unite("Item_Element", c(Item, Element), sep = "_")
+  spread(Element, Value) %>% 
+  mutate(yield_calc = round(Production / `Area harvested` * 10000, 0),
+         yield_test = Yield - yield_calc)
+```
+
+```{r top_6_produced_crops, include=TRUE}
+top_6_produced_crops <- FAO %>% 
+  filter(Year == 2016,
+         Area == 'Uganda') %>% 
+  #select(Item, Production) %>% 
+  top_n(6, Production) %>% 
+  select(Item)
+  
+top_6_produced_crops <- unlist(top_6_produced_crops[,1])
+```
+
+```{r crop_cats, include=TRUE}
+cash <- c('Coffee, green', 'Cottonseed', 'Tea', 'Tobacco, unmanufactured')
+
+staple <- c('Millet', 'Maize', 'Sorghum', 'Beans, dry', 'Cassava', 
+            'Plantains and others', 'Sweet potatoes')
+
+special_crops <- c('Sugar cane', 'Cassava')
+```
+
+```{r fig.height=6.2}
+FAO %>% 
+  filter(Item %in% staple) %>% 
+  filter(Year >= 1990) %>% 
+  ggplot(.) + 
+  geom_point(data=. %>% filter(Year == 1990),
+             aes(x=Yield/100000,
+                y=Year), color="lightgray", size=4) + 
+  geom_line(aes(x=Yield/100000,
+                y=Year,  
+                color=Item), size=1.2) + 
+  geom_point(data=. %>% filter(Year == 2016),
+             aes(x=Yield/100000,
+                y=Year, color=Item), size=4) + 
+  ggtitle('Change in yield of 5 major crops in Uganda and Rwanda',
+          subtitle = '1990 - 2016') + 
+  labs(caption='Source: FAOSTAT') + 
+  facet_wrap(~Area, ncol=1) + 
+  #coord_flip() + 
+  pardee.theme
+
+```
+
+```{r fig.height=6.2}
+FAO <- FAO %>% 
+  mutate(Decade = ifelse(Year <1970, '1960s',
+                  ifelse(Year >=1970 & Year < 1980, '1970s', 
+                  ifelse(Year >=1980 & Year < 1990, '1980s', 
+                  ifelse(Year >=1990 & Year < 2000, '1990s', 
+                  ifelse(Year >=2000 & Year < 2010, '2000s', '2010s'))))),
+         Period = ifelse(Year >=1985, '1960 - 1985',
+                  ifelse(Year >1985 & Year <=2010, '1986 - 2010', '2011 - 2016')))
+
+
+decade_cols <- c('1960s' = "#f7f7f7",
+                 '1970s' = "#d9d9d9",
+                 '1980s' = "#bdbdbd",
+                 '1990s' = "#969696",
+                 '2000s' = "#636363",
+                 '2010s' = "#252525",
+                 '1960 - 1985' = "#f0f0f0",
+                 '1986 - 2010' = "#bdbdbd",
+                 '2011 - 2016' = "#636363")
+
+FAO %>% 
+  filter(Item %in% staple) %>% 
+  ggplot(.) + 
+  geom_point(aes(x=Production, 
+                 y=`Area harvested`, 
+                 color=Decade)) + 
+  facet_wrap(~Area) + 
+  pardee.theme + 
+  scale_color_manual(values = decade_cols)
+```
+
+# Bilateral trade viz experimentation
+
+```{r}
+library(migest)
+library(circlize)
+```
+
+```{r bilateral, include=TRUE}
+#Data is missing.......
+bilateral <- read_csv('.//data/FAOSTAT_UganaBilatTrade.csv')
+```
+
+```{r}
+bilateral %>% 
+  distinct(`Reporter Countries`)
+```
+
+```{r}
+region_groups_fao <- read_csv('.//data/region_groups_fao.csv')
+```
+
+```{r}
+ug_wheat_trade <- bilateral %>% 
+  filter(`Reporter Countries` == 'Uganda' | `Partner Countries` == 'Uganda',
+         Item == 'Wheat',
+         Element %in% quantity_vals,
+         Year == 2013) %>% 
+  arrange(desc(Value)) %>% 
+  left_join(x=.,
+            y=region_groups_fao,
+            by=c("Partner Countries" = "FAO_Partner_Countries"))
+```
+
+```{r}
+ug_wheat_trade %>% 
+  arrange()
+```
+
+```{r}
+library(ggalluvial)
+```
+
+```{r fig.height=6.2}
+drop_subr <- c('East & Southeast Asia', 'Latin America & the Caribbean', 
+               'Middle East & Northern Africa', 'North America', 'Rest of Sub-Saharan Africa')
+
+ug_wheat_trade %>% 
+  mutate(new_subgroup = ifelse(sub_group %in% drop_subr, 'Rest of World', as.character(sub_group))) %>% 
+  group_by(`Reporter Countries`, `Partner Countries`, new_subgroup) %>% 
+  summarise(Value = sum(Value, na.rm = TRUE)) %>% 
+  ggplot(aes(axis1 = new_subgroup,
+             axis2 = as.factor(`Reporter Countries`),
+             y=Value)) + 
+  scale_x_discrete(limits = c('Trade Partner', 'Uganda'), expand = c(.1, .05)) + 
+  ggtitle('Wheat imports by source in 2013') + 
+  geom_alluvium(aes(fill=`Partner Countries`)) + 
+  geom_stratum() + 
+  geom_text(stat='stratum', label.strata = TRUE, fontface="bold") + 
+  pardee.theme + 
+  theme(legend.position = 'none')
+```
+
+
+```{r}
+bilat_staple <- bilateral %>% 
+  filter(`Reporter Countries` == 'Uganda' | `Partner Countries` == 'Uganda',
+         Item %in% staple,
+         Element %in% quantity_vals,
+         Year == 2013) %>% 
+  arrange(desc(Value)) %>% 
+  left_join(x=.,
+            y=region_groups_fao,
+            by=c("Partner Countries" = "FAO_Partner_Countries"))
+```
+
+```{r}
+bilat_cash <- bilateral %>% 
+  filter(`Reporter Countries` == 'Uganda' | `Partner Countries` == 'Uganda',
+         Item %in% cash,
+         Element %in% quantity_vals,
+         Year == 2013) %>% 
+  arrange(desc(Value)) %>% 
+  left_join(x=.,
+            y=region_groups_fao,
+            by=c("Partner Countries" = "FAO_Partner_Countries"))
+```
+
+
+```{r fig.height=6.2}
+item_drop <- c('Millet', 'Sweet potatoes')
+
+bilat_staple <- bilat_staple %>% 
+  filter(!Item %in% item_drop,
+         `Partner Countries` != 'Unspecified Area') #very little trade in these
+
+drop_subr <- c('East & Southeast Asia', 'Latin America & the Caribbean', 
+               'Middle East & Northern Africa', 'North America', 'Europe', 
+               'Oceania', 'South Asia')
+
+bilat_staple %>% 
+  mutate(new_subgroup = ifelse(sub_group %in% drop_subr, 'Rest of World', as.character(sub_group))) %>% 
+  group_by(`Reporter Countries`, `Partner Countries`, Item, new_subgroup) %>% 
+  summarise(Value = sum(Value, na.rm = TRUE)) %>% 
+  filter(!is.na(new_subgroup)) %>% 
+  ggplot(aes(axis1 = new_subgroup,
+             axis2 = as.factor(`Reporter Countries`),
+             y=Value)) + 
+  scale_x_discrete(limits = c('Trade Partner', 'Uganda'), expand = c(.1, .05)) + 
+  ggtitle('Trade in staple crops to Uganda in 2013 by source region') + 
+  geom_alluvium(aes(fill=`Partner Countries`)) + 
+  geom_stratum() + 
+  geom_text(stat='stratum', label.strata = TRUE, fontface="bold") + 
+  pardee.theme + 
+  facet_wrap(~Item, nrow=2) 
+  theme(legend.position = 'none')
+```
+
+```{r}
+library(FAOSTAT)
+
+?getFAO
+
+obj1 <- FAOSTAT::getFAO(name = NULL,
+                        domainCode = 'TM', 
+                        elementCode = 5312, 
+                        itemCode = 56,
+                        countrySet = '226',
+                        useCHMT = TRUE,
+                        yearRange = c(2000, 2016),
+                        outputFormat = 'long')
+
+
+```
+
+
+
+```{r}
+FAO_bilateral_staple <- read_csv('FAOSTAT_data_7-12-2018.csv') %>% 
+  left_join(x=.,
+            y=region_groups_fao,
+            by=c("Partner Countries" = "FAO_Partner_Countries")) %>% 
+  rename('partner_sub_group' = 'sub_group',
+         'partner_sub_group_eac' = 'sub_group_eac') %>% 
+  select(-c(main_group, Country)) %>% 
+  left_join(x=.,
+            y=region_groups_fao,
+            by=c("Reporter Countries" = "FAO_Partner_Countries")) %>% 
+  rename('reporter_sub_group' = 'sub_group',
+         'reporter_sub_group_eac' = 'sub_group_eac') %>% 
+  select(-c(main_group, Country))
+```
+
+```{r fig.height=6.2}
+FAO_bilateral_staple %>% 
+  filter(partner_sub_group_eac == 'East African Community') %>% 
+  #mutate(new_subgroup = ifelse(sub_group %in% drop_subr, 'Rest of World', as.character(sub_group))) %>% 
+  #group_by(`Reporter Countries`, `Partner Countries`, Item, new_subgroup) %>% 
+  #summarise(Value = sum(Value, na.rm = TRUE)) %>% 
+  #filter(!is.na(new_subgroup)) %>% 
+  ggplot(aes(axis1 = partner_sub_group_eac,
+             axis2 = reporter_sub_group_eac,
+             y=Value)) + 
+  scale_x_discrete(limits = c('Trade Partner', 'Reporter Country'), expand = c(.1, .05)) + 
+  ggtitle('Regional flow in staple crops by world region in 2016') + 
+  geom_alluvium(aes(fill=Value)) + 
+  geom_stratum() + 
+  geom_text(stat='stratum', label.strata = TRUE, fontface="bold") + 
+  pardee.theme + 
+  scale_y_continuous(labels = comma) + 
+  #facet_wrap(~Item, nrow=2) 
+  theme(legend.position = 'none')
+```
+
+
